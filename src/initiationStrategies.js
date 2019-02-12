@@ -1,6 +1,6 @@
 // @format
 
-function initiationStrategies(strategies = {}) {
+export default function (strategies = {}) {
   return {
     add(name, strategy) {
       strategies[name] = strategy;
@@ -11,5 +11,3 @@ function initiationStrategies(strategies = {}) {
     },
   };
 }
-
-export { initiationStrategies };

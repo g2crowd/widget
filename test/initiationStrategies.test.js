@@ -1,14 +1,14 @@
 // @format
 
-import { initiationStrategies } from '../src/initiationStrategies';
+import initiationStrategies from '../src/initiationStrategies';
 
 test('allows adding strategies', () => {
-  let strats = initiationStrategies();
+  let strategies = initiationStrategies();
   let mocked = jest.fn();
 
-  strats.add('testing', mocked);
+  strategies.add('testing', mocked);
 
-  expect(strats.get('testing')).toEqual(mocked);
+  expect(strategies.get('testing')).toEqual(mocked);
 });
 
 test('allows seeding w/ strategies', () => {

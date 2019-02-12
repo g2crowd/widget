@@ -46,9 +46,10 @@
 //     <div ue='widget-1 widget-2'></div>
 
 import $ from 'jquery';
-import extractOptions from '@g2crowd/extract-options';
+import { extractOptions } from '@g2crowd/extract-options';
 import camelize from './camelize';
 import initiationStrategies from './initiationStrategies';
+import selectorBuilder from './selectorBuilder';
 
 class AlreadyRegisteredError extends Error {
   constructor(name) {
@@ -72,12 +73,11 @@ const strategies = initiationStrategies({
   },
 });
 
-const widget = function(selector, loadEvents, fragmentLoadEvents) {
-  const registered = widgetRegistry();
+const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
+  const selector = selectorBuilder({ attr, data });
+  const registered = {};
 
   const register = function(name, plugin, settings = {}) {
-    registered.add(name, plugin, settings);
-
     if (registered[name]) {
       throw new AlreadyRegisteredError(name);
     }
@@ -89,7 +89,7 @@ const widget = function(selector, loadEvents, fragmentLoadEvents) {
   const loadWidget = function($$, name, data) {
     if (name) {
       const existingPlugin = $$.data(`vvidget:${name}`);
-      const pluginFn = registered.get(name);
+      const pluginFn = registered[name];
 
       if (!pluginFn) {
         return;
@@ -103,7 +103,7 @@ const widget = function(selector, loadEvents, fragmentLoadEvents) {
           extractOptions(data, pluginName)
         );
 
-        initiationStrategies[pluginFn.init](pluginFn, $$, options);
+        strategies.get(pluginFn.init)(pluginFn, $$, options);
 
         $$.data(`vvidget:${name}`, true);
       }
@@ -113,10 +113,9 @@ const widget = function(selector, loadEvents, fragmentLoadEvents) {
   const initWidgets = function($elements) {
     $elements.each(function() {
       const $$ = $(this);
-      const data = $$.data();
-      const names = `${$$.data().ueWidget || ''} ${$$.attr('ue') || ''}`;
+      const names = `${$$.data(data) || ''} ${$$.attr(attr) || ''}`;
 
-      names.split(' ').forEach(name => loadWidget($$, name, data));
+      names.split(' ').forEach(name => loadWidget($$, name, $$.data()));
 
       $$.trigger('vvidget:ready');
     });
@@ -143,8 +142,4 @@ const widget = function(selector, loadEvents, fragmentLoadEvents) {
   return register;
 };
 
-export default widget(
-  '[data-ue-widget],[ue]',
-  'page-refreshed',
-  'page-refreshed'
-);
+export default widget;
