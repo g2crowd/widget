@@ -17,9 +17,11 @@
   },
   "private": false,
   "scripts": {
+    "publish": "pack publish",
     "build": "pack build",
     "test": "jest",
-    "watch": "jest --watchAll"
+    "watch": "jest --watchAll",
+    "version": "npm run build"
   },
   "dependencies": {
     "@g2crowd/extract-options": "1.1.1"
