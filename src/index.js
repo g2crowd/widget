@@ -60,18 +60,23 @@ class AlreadyRegisteredError extends Error {
 }
 
 const strategies = initiationStrategies({
-  nextTick(pluginFn, $$, options) {
-    return window.setTimeout(() => pluginFn.call($$, options), 0);
+  nextTick(pluginFn, $$, options, ready) {
+    return window.setTimeout(() => pluginFn.call($$, options, ready), 0);
   },
 
-  immediate(pluginFn, $$, options) {
-    return pluginFn.call($$, options) || {};
+  immediate(pluginFn, $$, options, ready) {
+    return pluginFn.call($$, options, ready) || {};
   },
 
-  hover(pluginFn, $$, options) {
-    return $$.one('mouseover', () => pluginFn.call($$, options));
+  hover(pluginFn, $$, options, ready) {
+    return $$.one('mouseover', () => pluginFn.call($$, options, ready));
   },
 });
+
+function emit($el, eventName) {
+  const event = new Event(eventName);
+  $el.get(0).dispatchEvent(event);
+}
 
 const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
   const selector = selectorBuilder({ attr, data });
@@ -95,6 +100,10 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
         return;
       }
 
+      const ready = () => {
+        emit($$, 'vvidget:initialized')
+      };
+
       if (!existingPlugin) {
         const pluginName = camelize(name);
         const options = $.extend(
@@ -103,7 +112,7 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
           extractOptions(data, pluginName)
         );
 
-        strategies.get(pluginFn.init)(pluginFn, $$, options);
+        strategies.get(pluginFn.init)(pluginFn, $$, options, ready);
 
         $$.data(`vvidget:${name}`, true);
       }
