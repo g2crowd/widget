@@ -74,7 +74,7 @@ const strategies = initiationStrategies({
 });
 
 function emit($el, eventName) {
-  const event = new Event(eventName);
+  const event = new CustomEvent(eventName);
   $el.get(0).dispatchEvent(event);
 }
 
