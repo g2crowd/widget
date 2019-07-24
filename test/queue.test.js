@@ -33,3 +33,18 @@ test('flush will run fns added after initial call', () => {
     expect(fn2.mock.calls.length).toEqual(1);
   });
 });
+
+test('flush will run again after delayed completion', (done) => {
+  let q = queue();
+  let fn = jest.fn();
+  let fn2 = jest.fn();
+  q.add(fn);
+
+  q.flush().then(() => {
+    q.add(fn2);
+    q.flush().then(() => {
+      expect(fn2.mock.calls.length).toEqual(1);
+      done();
+    });
+  });
+});

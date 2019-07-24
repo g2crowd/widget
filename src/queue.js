@@ -15,10 +15,11 @@ function queue() {
     },
 
     flush() {
-      if (!completed) {
+      if (completed === null) {
         completed = new Promise(function (resolve) {
           window.setTimeout(function () {
             flush();
+            completed = null;
             resolve();
           }, 0);
         });
