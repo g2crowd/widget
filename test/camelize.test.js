@@ -2,7 +2,7 @@
 
 import camelize from '../src/camelize';
 
-test('allows adding strategies', () => {
+test('converts strings', () => {
   expect(camelize('camel_case')).toEqual('camelCase');
   expect(camelize('camel-case')).toEqual('camelCase');
   expect(camelize('camelCase')).toEqual('camelCase');

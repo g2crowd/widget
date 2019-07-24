@@ -48,6 +48,7 @@
 import $ from 'jquery';
 import { extractOptions } from '@g2crowd/extract-options';
 import camelize from './camelize';
+import queue from './queue';
 import initiationStrategies from './initiationStrategies';
 import selectorBuilder from './selectorBuilder';
 
@@ -58,6 +59,8 @@ class AlreadyRegisteredError extends Error {
     this.message = `${name} has already been registered.`;
   }
 }
+
+const widgetQueue = queue();
 
 const strategies = initiationStrategies({
   nextTick(pluginFn, $$, options, ready) {
@@ -112,7 +115,10 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
           extractOptions(data, pluginName)
         );
 
-        strategies.get(pluginFn.init)(pluginFn, $$, options, ready);
+        widgetQueue.add(() => {
+          strategies.get(pluginFn.init)(pluginFn, $$, options, ready);
+        });
+        widgetQueue.flush();
 
         $$.data(`vvidget:${name}`, true);
       }
@@ -125,8 +131,6 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
       const names = `${$$.data(data) || ''} ${$$.attr(attr) || ''}`;
 
       names.split(' ').forEach(name => loadWidget($$, name, $$.data()));
-
-      $$.trigger('vvidget:ready');
     });
   };
 
