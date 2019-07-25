@@ -63,16 +63,16 @@ class AlreadyRegisteredError extends Error {
 const widgetQueue = queue();
 
 const strategies = initiationStrategies({
-  nextTick(pluginFn, $$, options, ready) {
-    return window.setTimeout(() => pluginFn.call($$, options, ready), 0);
+  nextTick(pluginFn, $$) {
+    return window.setTimeout(() => pluginFn(), 0);
   },
 
-  immediate(pluginFn, $$, options, ready) {
-    return pluginFn.call($$, options, ready) || {};
+  immediate(pluginFn, $$) {
+    return pluginFn() || {};
   },
 
-  hover(pluginFn, $$, options, ready) {
-    return $$.one('mouseover', () => pluginFn.call($$, options, ready));
+  hover(pluginFn, $$) {
+    return $$.one('mouseover', () => pluginFn());
   },
 });
 
@@ -94,7 +94,23 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
     registered[name] = plugin;
   };
 
-  const loadWidget = function($$, name, data) {
+  const wrapPlugin = function wrapPlugin(name, pluginFn, $$) {
+    const ready = function ready() {
+      emit($$, 'vvidget:initialized');
+    };
+
+    return function() {
+      const pluginName = camelize(name);
+      const options = $.extend(
+        {},
+        pluginFn.defaults,
+        extractOptions($$.data(), pluginName)
+      );
+      pluginFn.call($$, options, ready);
+    };
+  };
+
+  const loadWidget = function($$, name) {
     if (name) {
       const existingPlugin = $$.data(`vvidget:${name}`);
       const pluginFn = registered[name];
@@ -103,20 +119,11 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
         return;
       }
 
-      const ready = () => {
-        emit($$, 'vvidget:initialized')
-      };
+      const wrapped = wrapPlugin(name, pluginFn, $$);
 
       if (!existingPlugin) {
-        const pluginName = camelize(name);
-        const options = $.extend(
-          {},
-          pluginFn.defaults,
-          extractOptions(data, pluginName)
-        );
-
         widgetQueue.add(() => {
-          strategies.get(pluginFn.init)(pluginFn, $$, options, ready);
+          strategies.get(pluginFn.init)(wrapped, $$);
         });
         widgetQueue.flush();
 
@@ -130,7 +137,7 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
       const $$ = $(this);
       const names = `${$$.data(data) || ''} ${$$.attr(attr) || ''}`;
 
-      names.split(' ').forEach(name => loadWidget($$, name, $$.data()));
+      names.split(' ').forEach(name => loadWidget($$, name));
     });
   };
 
