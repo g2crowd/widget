@@ -1,6 +1,6 @@
 {
   "name": "@g2crowd/widget",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Rails-friendly jquery plugin wrapper",
   "repository": "https://github.com/g2crowd/widget",
   "author": "Michael Wheeler",
