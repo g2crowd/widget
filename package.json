@@ -1,6 +1,6 @@
 {
   "name": "@g2crowd/widget",
-  "version": "1.1.4",
+  "version": "1.2.1",
   "description": "Rails-friendly jquery plugin wrapper",
   "repository": "https://github.com/g2crowd/widget",
   "author": "Michael Wheeler",
@@ -17,22 +17,23 @@
   },
   "private": false,
   "scripts": {
-    "publish": "pack publish",
-    "build": "pack build",
+    "publish": "pika-pack publish",
+    "build": "pika-pack build",
     "test": "jest",
     "watch": "jest --watchAll",
     "version": "npm run build"
   },
   "dependencies": {
-    "@g2crowd/extract-options": "1.1.1"
+    "@g2crowd/extract-options": "1.1.1",
+    "core-js": "^3.1.4"
   },
   "devDependencies": {
     "@babel/cli": "^7.5.0",
     "@babel/core": "^7.5.4",
     "@babel/preset-env": "^7.5.4",
+    "@pika/pack": "^0.5.0",
     "@pika/plugin-build-web": "^0.3.10",
     "@pika/plugin-standard-pkg": "^0.3.10",
-    "core-js": "^2.6.3",
     "jest": "^24.8.0",
     "npm": "^6.8.0"
   },
