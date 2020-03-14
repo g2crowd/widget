@@ -1,6 +1,6 @@
 // @format
 
-export default function (strategies = {}) {
+export default function(strategies = {}) {
   return {
     add(name, strategy) {
       strategies[name] = strategy;
@@ -8,6 +8,6 @@ export default function (strategies = {}) {
 
     get(name) {
       return strategies[name];
-    },
+    }
   };
 }

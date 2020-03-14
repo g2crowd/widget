@@ -73,7 +73,7 @@ const strategies = initiationStrategies({
 
   hover(pluginFn, $$) {
     return $$.one('mouseover', () => pluginFn());
-  },
+  }
 });
 
 function emit($el, eventName) {
@@ -101,11 +101,7 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
 
     return function() {
       const pluginName = camelize(name);
-      const options = $.extend(
-        {},
-        pluginFn.defaults,
-        extractOptions($$.data(), pluginName)
-      );
+      const options = $.extend({}, pluginFn.defaults, extractOptions($$.data(), pluginName));
       pluginFn.call($$, options, ready);
     };
   };
@@ -154,8 +150,7 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
     return false;
   });
 
-  register.initAllWidgets = () =>
-    $(document).ready(() => initWidgets($(selector)));
+  register.initAllWidgets = () => $(document).ready(() => initWidgets($(selector)));
 
   register.strategies = strategies;
 

@@ -9,15 +9,15 @@ function queue() {
     list = [];
   }
 
-  const me = {
+  return {
     add(item) {
       list.push(item);
     },
 
     flush() {
       if (completed === null) {
-        completed = new Promise(function (resolve) {
-          window.setTimeout(function () {
+        completed = new Promise(function(resolve) {
+          window.setTimeout(function() {
             flush();
             completed = null;
             resolve();
@@ -32,8 +32,6 @@ function queue() {
       return list.length;
     }
   };
-
-  return me;
 }
 
 export default queue;
