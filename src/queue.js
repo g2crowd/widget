@@ -5,7 +5,7 @@ function queue() {
   let completed = null;
 
   function flush() {
-    list.forEach(i => i());
+    list.forEach((i) => i());
     list = [];
   }
 
@@ -16,8 +16,8 @@ function queue() {
 
     flush() {
       if (completed === null) {
-        completed = new Promise(function(resolve) {
-          window.setTimeout(function() {
+        completed = new Promise(function (resolve) {
+          window.setTimeout(function () {
             flush();
             completed = null;
             resolve();

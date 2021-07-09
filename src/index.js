@@ -81,11 +81,11 @@ function emit($el, eventName) {
   $el.get(0).dispatchEvent(event);
 }
 
-const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
+const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
   const selector = selectorBuilder({ attr, data });
   const registered = {};
 
-  const register = function(name, plugin, settings = {}) {
+  const register = function (name, plugin, settings = {}) {
     if (registered[name]) {
       throw new AlreadyRegisteredError(name);
     }
@@ -99,14 +99,14 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
       emit($$, 'vvidget:initialized');
     };
 
-    return function() {
+    return function () {
       const pluginName = camelize(name);
       const options = $.extend({}, pluginFn.defaults, extractOptions($$.data(), pluginName));
       pluginFn.call($$, options, ready);
     };
   };
 
-  const loadWidget = function($$, name) {
+  const loadWidget = function ($$, name) {
     if (name) {
       const existingPlugin = $$.data(`vvidget:${name}`);
       const pluginFn = registered[name];
@@ -128,25 +128,21 @@ const widget = function({ attr, data }, loadEvents, fragmentLoadEvents) {
     }
   };
 
-  const initWidgets = function($elements) {
-    $elements.each(function() {
+  const initWidgets = function ($elements) {
+    $elements.each(function () {
       const $$ = $(this);
       const names = `${$$.data(data) || ''} ${$$.attr(attr) || ''}`;
 
-      names.split(' ').forEach(name => loadWidget($$, name));
+      names.split(' ').forEach((name) => loadWidget($$, name));
     });
   };
 
-  $(document).on(loadEvents, function() {
+  $(document).on(loadEvents, function () {
     initWidgets($(selector));
   });
 
-  $(document).on(fragmentLoadEvents, 'html *', function() {
-    initWidgets(
-      $(this)
-        .find(selector)
-        .addBack(selector)
-    );
+  $(document).on(fragmentLoadEvents, 'html *', function () {
+    initWidgets($(this).find(selector).addBack(selector));
     return false;
   });
 

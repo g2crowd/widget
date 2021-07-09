@@ -34,7 +34,7 @@ test('flush will run fns added after initial call', () => {
   });
 });
 
-test('flush will run again after delayed completion', done => {
+test('flush will run again after delayed completion', (done) => {
   let q = queue();
   let fn = jest.fn();
   let fn2 = jest.fn();
