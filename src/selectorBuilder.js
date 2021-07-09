@@ -1,4 +1,4 @@
-export default function({ attr, data }) {
+export default function ({ attr, data }) {
   const result = [];
 
   if (attr) {
