@@ -45,12 +45,10 @@
 // HTML:
 //     <div ue='widget-1 widget-2'></div>
 
-import $ from 'jquery';
-import { extractOptions } from '@g2crowd/extract-options';
-import camelize from './camelize';
-import queue from './queue';
-import initiationStrategies from './initiationStrategies';
+import initWidgets from './initWidgets';
 import selectorBuilder from './selectorBuilder';
+import { widgetInitiator } from './initWidgets';
+import { strategies } from './strategies';
 
 class AlreadyRegisteredError extends Error {
   constructor(name) {
@@ -60,30 +58,10 @@ class AlreadyRegisteredError extends Error {
   }
 }
 
-const widgetQueue = queue();
-
-const strategies = initiationStrategies({
-  nextTick(pluginFn, $$) {
-    return window.setTimeout(() => pluginFn(), 0);
-  },
-
-  immediate(pluginFn, $$) {
-    return pluginFn() || {};
-  },
-
-  hover(pluginFn, $$) {
-    return $$.one('mouseover', () => pluginFn());
-  }
-});
-
-function emit($el, eventName) {
-  const event = new CustomEvent(eventName);
-  $el.get(0).dispatchEvent(event);
-}
-
 const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
   const selector = selectorBuilder({ attr, data });
   const registered = {};
+  const initWidgets = widgetInitiator({ attr, data, registered });
 
   const register = function (name, plugin, settings = {}) {
     if (registered[name]) {
@@ -94,59 +72,27 @@ const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
     registered[name] = plugin;
   };
 
-  const wrapPlugin = function wrapPlugin(name, pluginFn, $$) {
-    const ready = function ready() {
-      emit($$, 'vvidget:initialized');
-    };
-
-    return function () {
-      const pluginName = camelize(name);
-      const options = $.extend({}, pluginFn.defaults, extractOptions($$.data(), pluginName));
-      pluginFn.call($$, options, ready);
-    };
-  };
-
-  const loadWidget = function ($$, name) {
-    if (name) {
-      const existingPlugin = $$.data(`vvidget:${name}`);
-      const pluginFn = registered[name];
-
-      if (!pluginFn) {
-        return;
-      }
-
-      const wrapped = wrapPlugin(name, pluginFn, $$);
-
-      if (!existingPlugin) {
-        widgetQueue.add(() => {
-          strategies.get(pluginFn.init)(wrapped, $$);
-        });
-        widgetQueue.flush();
-
-        $$.data(`vvidget:${name}`, true);
-      }
-    }
-  };
-
-  const initWidgets = function ($elements) {
-    $elements.each(function () {
-      const $$ = $(this);
-      const names = `${$$.data(data) || ''} ${$$.attr(attr) || ''}`;
-
-      names.split(' ').forEach((name) => loadWidget($$, name));
-    });
-  };
-
-  $(document).on(loadEvents, function () {
-    initWidgets($(selector));
+  document.addEventListener(loadEvents, function () {
+    initWidgets(document.body.querySelectorAll(selector));
   });
 
-  $(document).on(fragmentLoadEvents, 'html *', function () {
-    initWidgets($(this).find(selector).addBack(selector));
+  document.addEventListener(fragmentLoadEvents, function (e) {
+    const targetElement = e.target;
+
+    if (targetElement && targetElement !== document) {
+      const elements = targetElement.querySelectorAll(selector);
+
+      if (targetElement.getAttribute(attr) || targetElement.getAttribute(`data-${data}`)) {
+        initWidgets([targetElement]);
+      }
+
+      initWidgets(elements);
+    }
+
     return false;
   });
 
-  register.initAllWidgets = () => $(document).ready(() => initWidgets($(selector)));
+  register.initAllWidgets = () => initWidgets(document.querySelectorAll(selector));
 
   register.strategies = strategies;
 
