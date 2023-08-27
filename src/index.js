@@ -2,12 +2,12 @@
 // vvidget
 // by Mike
 //
-// This is a widget abstraction for creating uniform jQuery
+// This is a widget abstraction for creating uniform JavaScript
 // plugins.
 //
 // The widget takes care of a few problems:
 //
-// Allowing new jQuery plugins to be added without adding extra
+// Allowing new JavaScript plugins to be added without adding extra
 // DOM crawling,
 //
 // Reliably binding to ready and page-refresh events, to
@@ -25,7 +25,7 @@
 //
 // Create Plugin:
 //     widget('widget-name', function(opts) {
-//       $el = this;
+//       const el = this;
 //     }, {
 //       defaults: {},
 //       init: 'nextTick'

@@ -1,6 +1,6 @@
 # vvidget
 
-vvidget is an abstraction for creating uniform jQuery plugins.
+vvidget is an abstraction for creating uniform JavaScript plugins.
 
 It creates plugins that take care of a few problems:
 
