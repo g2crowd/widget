@@ -1,7 +1,7 @@
 import queue from './queue';
 import { extractOptions } from '@g2crowd/extract-options';
 import camelize from './camelize';
-import { strategies } from './strategies';
+import * as strategies from './strategies';
 
 function simpleCaste(value) {
   try {
@@ -50,10 +50,10 @@ const loadWidget = function (element, name, widgetQueue, registered) {
 
   if (!existingPlugin) {
     widgetQueue.add(() => {
-      strategies.get(pluginFn.init)(wrapped, element);
+      const initStrategy = strategies[pluginFn.init] || strategies.fallback(pluginFn.init, strategies.nextTick);
+      initStrategy(wrapped, element);
     });
     widgetQueue.flush();
-
     element.dataset[`vvidget_${camelize(name)}`] = true;
   }
 };
