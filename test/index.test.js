@@ -73,7 +73,10 @@ describe('with attr=ue and data=ue-widget', () => {
 
   describe('when two widgets are on the same element', () => {
     beforeEach(() => {
-      document.body.innerHTML += `<div id='three' ue='widget-one widget-two' data-widget-one-x=1></div>`;
+      document.body.insertAdjacentHTML(
+        'beforeend',
+        `<div id='three' ue='widget-one widget-two' data-widget-one-x=1></div>`
+      );
     });
 
     test('does not mark the new widget', (done) => {
@@ -98,7 +101,7 @@ describe('with attr=ue and data=ue-widget', () => {
 
   describe('when unregisted widget is appended', () => {
     beforeEach(() => {
-      document.body.innerHTML += `<div id='three' ue='widget-three'></div>`;
+      document.body.insertAdjacentHTML('beforeend', `<div id='three' ue='widget-three'></div>`);
       trigger(document, 'page-refreshed');
     });
 
@@ -112,7 +115,7 @@ describe('with attr=ue and data=ue-widget', () => {
 
   describe('when another widget is appended', () => {
     beforeEach(() => {
-      document.body.innerHTML += `<div id='three' ue='widget-one' data-widget-one-x=1></div>`;
+      document.body.insertAdjacentHTML('beforeend', `<div id='three' ue='widget-one' data-widget-one-x=1></div>`);
     });
 
     test('does not mark the new widget', (done) => {
