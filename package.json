@@ -1,8 +1,11 @@
 {
   "name": "@g2crowd/widget",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Rails-friendly plugin wrapper",
-  "repository": "https://github.com/g2crowd/widget",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/g2crowd/widget.git"
+  },
   "author": "Michael Wheeler",
   "license": "MIT",
   "private": false,
