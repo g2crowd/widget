@@ -3,6 +3,30 @@ import { extractOptions } from '@g2crowd/extract-options';
 import camelize from './camelize';
 import { strategies } from './strategies';
 
+const widgetTracker = function () {
+  const elements = new WeakMap();
+
+  return {
+    get: function (widgetName, element) {
+      const widgets = elements.get(element);
+
+      return widgets && widgets.get(widgetName);
+    },
+
+    set: function (widgetName, element, value) {
+      if (!elements.has(element)) {
+        elements.set(element, new Map());
+      }
+
+      elements.get(element).set(widgetName, value);
+    },
+
+    has: function (widgetName, element) {
+      return this.get(widgetName, element) !== undefined;
+    }
+  };
+};
+
 function simpleCaste(value) {
   try {
     return JSON.parse(value);
@@ -38,14 +62,14 @@ const wrapPlugin = function wrapPlugin(name, pluginFn, element) {
   };
 };
 
-const loadWidget = function (element, name, widgetQueue, registered) {
-  const existingPlugin = element.dataset[`vvidget_${camelize(name)}`];
+const loadWidget = function (element, name, widgetQueue, registered, initiatedWidgets) {
   const pluginFn = registered[name];
 
   if (!pluginFn) {
     return;
   }
 
+  const existingPlugin = initiatedWidgets.get(name, element);
   const wrapped = wrapPlugin(name, pluginFn, element);
 
   if (!existingPlugin) {
@@ -54,10 +78,12 @@ const loadWidget = function (element, name, widgetQueue, registered) {
     });
     widgetQueue.flush();
 
+    initiatedWidgets.set(name, element, true);
     element.dataset[`vvidget_${camelize(name)}`] = true;
   }
 };
 
+const initiatedWidgets = widgetTracker();
 export const widgetInitiator = function ({ attr, data, registered }, fn = loadWidget) {
   const widgetQueue = queue();
   registered = registered || {};
@@ -69,7 +95,7 @@ export const widgetInitiator = function ({ attr, data, registered }, fn = loadWi
       names
         .split(' ')
         .filter((i) => i)
-        .forEach((name) => fn(element, name, widgetQueue, registered));
+        .forEach((name) => fn(element, name, widgetQueue, registered, initiatedWidgets));
     });
   };
 };
