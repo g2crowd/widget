@@ -1,10 +1,10 @@
 import widget from '../src/index';
 
 describe('with attr=ue and data=ue-widget', () => {
-  let register, one, two;
+  let register, one, two, oneTeardown, twoTeardown;
 
-  function trigger(element, event) {
-    const evt = new Event(event, { bubbles: true, cancelable: true });
+  function trigger(element, event, data) {
+    const evt = new CustomEvent(event, { bubbles: true, cancelable: true, ...data });
     element.dispatchEvent(evt);
   }
 
@@ -13,15 +13,17 @@ describe('with attr=ue and data=ue-widget', () => {
     <div id='one' ue='widget-one' data-widget-one-options='{ "x": 1 }'></div>
     <div id='two' data-ue-widget='widget-two' data-widget-two-z='z' data-widget-two-y-value=2></div>
     `;
+    register && register.shutdown();
     register = widget({ attr: 'ue', data: 'ue-widget' }, 'page-refreshed', 'page-refreshed');
-    one = jest.fn(() => {});
-    two = jest.fn(() => {});
+
+    oneTeardown = jest.fn();
+    one = jest.fn((_el, _opts, ready) => ready(oneTeardown));
+    two = jest.fn((_el, _opts, ready) => ready());
 
     register(
       'widget-one',
       function (opts, ready) {
         one(this, opts, ready);
-        ready();
       },
       { init: 'immediate', defaults: { d: 'd' } }
     );
@@ -29,7 +31,6 @@ describe('with attr=ue and data=ue-widget', () => {
       'widget-two',
       function (opts, ready) {
         two(this, opts, ready);
-        ready();
       },
       { init: 'immediate', defaults: { e: 'e' } }
     );
@@ -61,6 +62,43 @@ describe('with attr=ue and data=ue-widget', () => {
       expect(document.getElementById('one').dataset.vvidget_widgetOne).toBe('true');
       expect(document.getElementById('two').dataset.vvidget_widgetTwo).toBe('true');
     }, 50);
+  });
+
+  describe('when page-refresh is triggered', () => {
+    test('does not call widget-one again', (done) => {
+      trigger(document, 'page-refreshed');
+
+      setTimeout(() => {
+        done();
+
+        expect(one).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('when vvidget:teardown is triggered', () => {
+      test('fires the teardown function', (done) => {
+        trigger(document.getElementById('one'), 'vvidget:teardown', { detail: { widgetName: 'widget-one' } });
+
+        setTimeout(() => {
+          done();
+          expect(oneTeardown).toHaveBeenCalledTimes(1);
+        });
+      });
+
+      describe('when page-refresh is triggered again', () => {
+        test('calls widget-one again', (done) => {
+          trigger(document.getElementById('one'), 'vvidget:teardown', { detail: { widgetName: 'widget-one' } });
+          trigger(document.getElementById('one'), 'vvidget:teardown', { detail: { widgetName: 'widget-two' } });
+          trigger(document, 'page-refreshed');
+
+          setTimeout(() => {
+            done();
+            expect(one).toHaveBeenCalledTimes(2);
+            expect(two).toHaveBeenCalledTimes(1);
+          });
+        });
+      });
+    });
   });
 
   describe('when double-registering a widget', () => {

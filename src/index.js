@@ -49,6 +49,8 @@ import initWidgets from './initWidgets';
 import selectorBuilder from './selectorBuilder';
 import { widgetInitiator } from './initWidgets';
 import { strategies } from './strategies';
+import { widgetTracker } from './widgetTracker';
+import camelize from './camelize';
 
 class AlreadyRegisteredError extends Error {
   constructor(name) {
@@ -61,7 +63,9 @@ class AlreadyRegisteredError extends Error {
 const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
   const selector = selectorBuilder({ attr, data });
   const registered = {};
-  const initWidgets = widgetInitiator({ attr, data, registered });
+  const teardowns = widgetTracker();
+  const initiatedWidgets = widgetTracker();
+  const initWidgets = widgetInitiator({ attr, data, registered, teardowns, initiatedWidgets });
 
   const register = function (name, plugin, settings = {}) {
     if (registered[name]) {
@@ -72,11 +76,11 @@ const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
     registered[name] = plugin;
   };
 
-  document.addEventListener(loadEvents, function () {
+  function handleLoadEvents() {
     initWidgets(document.body.querySelectorAll(selector));
-  });
+  }
 
-  document.addEventListener(fragmentLoadEvents, function (e) {
+  function handleFragmentLoadEvents(e) {
     const targetElement = e.target;
 
     if (targetElement && targetElement !== document) {
@@ -90,11 +94,60 @@ const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
     }
 
     return false;
-  });
+  }
 
-  register.initAllWidgets = () => initWidgets(document.querySelectorAll(selector));
+  function teardownWidget(element, widgetName) {
+    const teardown = teardowns.get(widgetName, element);
+    const initiated = initiatedWidgets.get(widgetName, element);
+
+    if (teardown && typeof teardown === 'function') {
+      teardown();
+      teardowns.set(widgetName, element, undefined);
+    }
+
+    if (initiated) {
+      initiatedWidgets.set(widgetName, element, undefined);
+      delete element.dataset[`vvidget_${camelize(widgetName)}`];
+    }
+  }
+
+  function handleTeardownEvents(e) {
+    const element = e.target;
+    const widgetName = e.detail && e.detail.widgetName;
+
+    if (widgetName) {
+      teardownWidget(element, widgetName);
+    } else {
+      const names = `${element.dataset[camelize(data)] || ''} ${element.getAttribute(attr) || ''}`;
+
+      names
+        .split(' ')
+        .filter((i) => i)
+        .forEach((name) => teardownWidget(element, name));
+    }
+  }
+
+  document.addEventListener(loadEvents, handleLoadEvents);
+  document.addEventListener(fragmentLoadEvents, handleFragmentLoadEvents);
+  document.addEventListener('vvidget:teardown', handleTeardownEvents);
 
   register.strategies = strategies;
+
+  register.initAllWidgets = () => initWidgets(document.querySelectorAll(selector));
+  register.teardownAllWidgets = () => {
+    const event = new CustomEvent('vvidget:teardown', { bubbles: true });
+    document.body.querySelectorAll(selector).forEach((el) => el.dispatchEvent(event));
+  };
+  register.restartAllWidgets = () => {
+    register.teardownAllWidgets();
+    register.initAllWidgets();
+  };
+  register.shutdown = () => {
+    register.teardownAllWidgets();
+    document.removeEventListener(loadEvents, handleLoadEvents);
+    document.removeEventListener(fragmentLoadEvents, handleFragmentLoadEvents);
+    document.removeEventListener('vvidget:teardown', handleTeardownEvents);
+  };
 
   return register;
 };

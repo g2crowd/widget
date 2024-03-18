@@ -1,30 +1,7 @@
 import { extractOptions } from '@g2crowd/extract-options';
 import camelize from './camelize';
 import { strategies } from './strategies';
-
-const widgetTracker = function () {
-  const elements = new WeakMap();
-
-  return {
-    get: function (widgetName, element) {
-      const widgets = elements.get(element);
-
-      return widgets && widgets.get(widgetName);
-    },
-
-    set: function (widgetName, element, value) {
-      if (!elements.has(element)) {
-        elements.set(element, new Map());
-      }
-
-      elements.get(element).set(widgetName, value);
-    },
-
-    has: function (widgetName, element) {
-      return this.get(widgetName, element) !== undefined;
-    }
-  };
-};
+import { widgetTracker } from './widgetTracker';
 
 function simpleCaste(value) {
   try {
@@ -44,50 +21,69 @@ function sanitizeDataset(dataset) {
   return sanitized;
 }
 
-function emit(element, eventName) {
-  const event = new CustomEvent(eventName);
+function emit(element, eventName, data) {
+  const event = new CustomEvent(eventName, { detail: data });
   element.dispatchEvent(event);
 }
 
-const wrapPlugin = function wrapPlugin(name, pluginFn, element) {
-  const ready = function ready() {
-    emit(element, 'vvidget:initialized');
+export const widgetInitiator = function ({ attr, data, registered, teardowns, initiatedWidgets }, fn) {
+  const availableWidgets = registered || {};
+  initiatedWidgets = initiatedWidgets || widgetTracker();
+
+  const wrapTeardown = function wrapTeardown(name, teardownFn, element) {
+    return function () {
+      if (typeof teardownFn === 'function') {
+        teardownFn();
+      }
+
+      initiatedWidgets.set(name, element, false);
+      delete element.dataset[`vvidget_${camelize(name)}`];
+    };
   };
 
-  return function () {
-    const pluginName = camelize(name);
-    const options = Object.assign({}, pluginFn.defaults, extractOptions(sanitizeDataset(element.dataset), pluginName));
-    pluginFn.call(element, options, ready);
+  const wrapPlugin = function wrapPlugin(name, pluginFn, element) {
+    const ready = function ready(teardown) {
+      teardowns.set(name, element, teardown);
+      emit(element, 'vvidget:initialized');
+    };
+
+    return function () {
+      const pluginName = camelize(name);
+      const options = Object.assign(
+        {},
+        pluginFn.defaults,
+        extractOptions(sanitizeDataset(element.dataset), pluginName)
+      );
+      return pluginFn.call(element, options, ready);
+    };
   };
-};
 
-async function startWidget(name, pluginFn, element) {
-  const wrapped = wrapPlugin(name, pluginFn, element);
-  const strategy = strategies.get(pluginFn.init);
+  async function startWidget(name, pluginFn, element) {
+    const strategy = strategies.get(pluginFn.init);
+    const wrapped = wrapPlugin(name, pluginFn, element);
 
-  strategy(wrapped, element);
-}
-
-const loadWidget = async function (element, name, availableWidgets, initiatedWidgets) {
-  const pluginFn = availableWidgets[name];
-
-  if (!pluginFn) {
-    return;
+    strategy(wrapped, element);
   }
 
-  if (initiatedWidgets.get(name, element)) {
-    return;
-  }
+  const loadWidget = async function (element, name) {
+    const pluginFn = availableWidgets[name];
 
-  startWidget(name, pluginFn, element);
+    if (!pluginFn) {
+      return;
+    }
 
-  initiatedWidgets.set(name, element, true);
-  element.dataset[`vvidget_${camelize(name)}`] = true;
-};
+    if (initiatedWidgets.get(name, element)) {
+      return;
+    }
 
-const initiatedWidgets = widgetTracker();
-export const widgetInitiator = function ({ attr, data, registered }, fn = loadWidget) {
-  registered = registered || {};
+    startWidget(name, pluginFn, element);
+
+    emit(element, 'vvidget:load', { name });
+    initiatedWidgets.set(name, element, true);
+    element.dataset[`vvidget_${camelize(name)}`] = true;
+  };
+
+  fn = fn || loadWidget;
 
   return function initWidgets(elements) {
     elements.forEach(function (element) {
@@ -96,7 +92,7 @@ export const widgetInitiator = function ({ attr, data, registered }, fn = loadWi
       names
         .split(' ')
         .filter((i) => i)
-        .forEach((name) => fn(element, name, registered, initiatedWidgets));
+        .forEach((name) => fn(element, name));
     });
   };
 };
