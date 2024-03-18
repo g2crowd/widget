@@ -1,4 +1,3 @@
-import queue from './queue';
 import { extractOptions } from '@g2crowd/extract-options';
 import camelize from './camelize';
 import { strategies } from './strategies';
@@ -62,30 +61,32 @@ const wrapPlugin = function wrapPlugin(name, pluginFn, element) {
   };
 };
 
-const loadWidget = function (element, name, widgetQueue, registered, initiatedWidgets) {
-  const pluginFn = registered[name];
+async function startWidget(name, pluginFn, element) {
+  const wrapped = wrapPlugin(name, pluginFn, element);
+  const strategy = strategies.get(pluginFn.init);
+
+  strategy(wrapped, element);
+}
+
+const loadWidget = async function (element, name, availableWidgets, initiatedWidgets) {
+  const pluginFn = availableWidgets[name];
 
   if (!pluginFn) {
     return;
   }
 
-  const existingPlugin = initiatedWidgets.get(name, element);
-  const wrapped = wrapPlugin(name, pluginFn, element);
-
-  if (!existingPlugin) {
-    widgetQueue.add(() => {
-      strategies.get(pluginFn.init)(wrapped, element);
-    });
-    widgetQueue.flush();
-
-    initiatedWidgets.set(name, element, true);
-    element.dataset[`vvidget_${camelize(name)}`] = true;
+  if (initiatedWidgets.get(name, element)) {
+    return;
   }
+
+  startWidget(name, pluginFn, element);
+
+  initiatedWidgets.set(name, element, true);
+  element.dataset[`vvidget_${camelize(name)}`] = true;
 };
 
 const initiatedWidgets = widgetTracker();
 export const widgetInitiator = function ({ attr, data, registered }, fn = loadWidget) {
-  const widgetQueue = queue();
   registered = registered || {};
 
   return function initWidgets(elements) {
@@ -95,7 +96,7 @@ export const widgetInitiator = function ({ attr, data, registered }, fn = loadWi
       names
         .split(' ')
         .filter((i) => i)
-        .forEach((name) => fn(element, name, widgetQueue, registered, initiatedWidgets));
+        .forEach((name) => fn(element, name, registered, initiatedWidgets));
     });
   };
 };
