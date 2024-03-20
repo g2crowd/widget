@@ -10,15 +10,18 @@ describe('with attr=ue and data=ue-widget', () => {
 
   beforeEach(() => {
     document.body.innerHTML = `
-    <div id='one' ue='widget-one' data-widget-one-options='{ "x": 1 }'></div>
-    <div id='two' data-ue-widget='widget-two' data-widget-two-z='z' data-widget-two-y-value=2></div>
+    <div id='wrapper'>
+      <div id='one' ue='widget-one' data-widget-one-options='{ "x": 1 }'></div>
+      <div id='two' data-ue-widget='widget-two' data-widget-two-z='z' data-widget-two-y-value=2></div>
+    </div>
     `;
     register && register.shutdown();
     register = widget({ attr: 'ue', data: 'ue-widget' }, 'page-refreshed', 'page-refreshed');
 
     oneTeardown = jest.fn();
+    twoTeardown = jest.fn();
     one = jest.fn((_el, _opts, ready) => ready(oneTeardown));
-    two = jest.fn((_el, _opts, ready) => ready());
+    two = jest.fn((_el, _opts, ready) => ready(twoTeardown));
 
     register(
       'widget-one',
@@ -95,6 +98,37 @@ describe('with attr=ue and data=ue-widget', () => {
             done();
             expect(one).toHaveBeenCalledTimes(2);
             expect(two).toHaveBeenCalledTimes(1);
+          });
+        });
+      });
+
+      describe('without a specific widget name', () => {
+        beforeEach(() => {
+          document.body.insertAdjacentHTML(
+            'beforeend',
+            `<div id='three' ue='widget-one widget-two' data-widget-one-x=1></div>`
+          );
+        });
+
+        test('tears down all widgets', (done) => {
+          trigger(document.getElementById('three'), 'page-refreshed');
+          trigger(document.getElementById('three'), 'vvidget:teardown');
+
+          setTimeout(() => {
+            done();
+            expect(oneTeardown).toHaveBeenCalledTimes(1);
+            expect(twoTeardown).toHaveBeenCalledTimes(1);
+          });
+        });
+
+        test('tears down child widgets', (done) => {
+          trigger(document.body, 'page-refreshed');
+          trigger(document.body, 'vvidget:teardown');
+
+          setTimeout(() => {
+            done();
+            expect(oneTeardown).toHaveBeenCalledTimes(2);
+            expect(twoTeardown).toHaveBeenCalledTimes(2);
           });
         });
       });
@@ -208,7 +242,64 @@ describe('with attr=ue and data=ue-widget', () => {
         setTimeout(() => {
           done();
           expect(document.getElementById('three').dataset.vvidget_widgetOne).toBe('true');
-        }, 50);
+        });
+      });
+    });
+  });
+
+  describe('when watching mutations', () => {
+    afterEach(() => {
+      register.stopWatchingDOM();
+    });
+
+    describe('when a widget is added', () => {
+      beforeEach(() => {
+        register.startWatchingDOM();
+        document.body.insertAdjacentHTML('beforeend', `<div id='three' ue='widget-one' data-widget-one-x=1></div>`);
+      });
+
+      test('calls widget-one on three', () => {
+        expect(one).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe('when container with widgets is added', () => {
+      beforeEach(() => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+        <div id='four' ue='widget-one' data-widget-one-x=1></div>
+        <div id='five' ue='widget-two' data-widget-two-y=2></div>
+        `;
+        register.startWatchingDOM();
+        document.body.appendChild(container);
+      });
+
+      test('it inits the new widgets', () => {
+        expect(one).toHaveBeenCalledTimes(2);
+        expect(two).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe('when a widget is removed', () => {
+      beforeEach(() => {
+        register.startWatchingDOM();
+        document.getElementById('one').remove();
+      });
+
+      test('tears down the widget', () => {
+        expect(oneTeardown).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('when removing the wrapping content', () => {
+      beforeEach(() => {
+        register.startWatchingDOM();
+        document.getElementById('wrapper').remove();
+      });
+
+      test('tears down all the widgets', () => {
+        expect(oneTeardown).toHaveBeenCalledTimes(1);
+        expect(twoTeardown).toHaveBeenCalledTimes(1);
       });
     });
   });
