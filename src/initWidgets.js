@@ -26,24 +26,13 @@ function emit(element, eventName, data) {
   element.dispatchEvent(event);
 }
 
-export const widgetInitiator = function ({ attr, data, registered, teardowns, initiatedWidgets }, fn) {
+export const widgetInitiator = function ({ attr, data, registered, initiatedWidgets }) {
   const availableWidgets = registered || {};
   initiatedWidgets = initiatedWidgets || widgetTracker();
 
-  const wrapTeardown = function wrapTeardown(name, teardownFn, element) {
-    return function () {
-      if (typeof teardownFn === 'function') {
-        teardownFn();
-      }
-
-      initiatedWidgets.set(name, element, false);
-      delete element.dataset[`vvidget_${camelize(name)}`];
-    };
-  };
-
-  const wrapPlugin = function wrapPlugin(name, pluginFn, element) {
+  const wrapPlugin = function wrapPlugin(name, pluginFn, element, resolve) {
     const ready = function ready(teardown) {
-      teardowns.set(name, element, teardown);
+      resolve(teardown);
       emit(element, 'vvidget:initialized');
     };
 
@@ -58,11 +47,16 @@ export const widgetInitiator = function ({ attr, data, registered, teardowns, in
     };
   };
 
-  async function startWidget(name, pluginFn, element) {
-    const strategy = strategies.get(pluginFn.init);
-    const wrapped = wrapPlugin(name, pluginFn, element);
+  function startWidget(name, pluginFn, element) {
+    const widgetPromise = new Promise(function (resolve) {
+      const strategy = strategies.get(pluginFn.init);
+      const wrapped = wrapPlugin(name, pluginFn, element, resolve);
 
-    strategy(wrapped, element);
+      strategy(wrapped, element);
+    });
+
+    initiatedWidgets.set(name, element, widgetPromise);
+    return widgetPromise;
   }
 
   const loadWidget = async function (element, name) {
@@ -79,20 +73,44 @@ export const widgetInitiator = function ({ attr, data, registered, teardowns, in
     startWidget(name, pluginFn, element);
 
     emit(element, 'vvidget:load', { name });
-    initiatedWidgets.set(name, element, true);
     element.dataset[`vvidget_${camelize(name)}`] = true;
   };
 
-  fn = fn || loadWidget;
+  function parseWidgetNames(element) {
+    const str = `${element.dataset[camelize(data)] || ''} ${element.getAttribute(attr) || ''}`;
+    return str.split(' ').filter((i) => i);
+  }
 
-  return function initWidgets(elements) {
-    elements.forEach(function (element) {
-      const names = `${element.dataset[camelize(data)] || ''} ${element.getAttribute(attr) || ''}`;
+  function teardownWidget(element, names) {
+    names.forEach((name) => {
+      const widgetPromise = initiatedWidgets.get(name, element);
 
-      names
-        .split(' ')
-        .filter((i) => i)
-        .forEach((name) => fn(element, name));
+      if (widgetPromise) {
+        widgetPromise.then((teardown) => {
+          if (teardown && typeof teardown === 'function') {
+            teardown();
+          }
+        });
+
+        initiatedWidgets.set(name, element, undefined);
+        delete element.dataset[`vvidget_${camelize(name)}`];
+      }
     });
+  }
+
+  return {
+    initWidgets: (elements) => {
+      elements.forEach(function (element) {
+        parseWidgetNames(element).forEach((name) => loadWidget(element, name));
+      });
+    },
+
+    teardownWidgets: (elements, widgetName) => {
+      elements.forEach((element) => {
+        const names = widgetName ? [widgetName] : parseWidgetNames(element);
+
+        teardownWidget(element, names);
+      });
+    }
   };
 };

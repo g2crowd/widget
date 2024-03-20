@@ -45,12 +45,10 @@
 // HTML:
 //     <div ue='widget-1 widget-2'></div>
 
-import initWidgets from './initWidgets';
 import selectorBuilder from './selectorBuilder';
 import { widgetInitiator } from './initWidgets';
 import { strategies } from './strategies';
-import { widgetTracker } from './widgetTracker';
-import camelize from './camelize';
+import { mutationObserver } from './mutationObserver';
 
 class AlreadyRegisteredError extends Error {
   constructor(name) {
@@ -63,9 +61,7 @@ class AlreadyRegisteredError extends Error {
 const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
   const selector = selectorBuilder({ attr, data });
   const registered = {};
-  const teardowns = widgetTracker();
-  const initiatedWidgets = widgetTracker();
-  const initWidgets = widgetInitiator({ attr, data, registered, teardowns, initiatedWidgets });
+  const init = widgetInitiator({ attr, data, registered });
 
   const register = function (name, plugin, settings = {}) {
     if (registered[name]) {
@@ -77,7 +73,7 @@ const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
   };
 
   function handleLoadEvents() {
-    initWidgets(document.body.querySelectorAll(selector));
+    init.initWidgets(document.body.querySelectorAll(selector));
   }
 
   function handleFragmentLoadEvents(e) {
@@ -87,67 +83,73 @@ const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
       const elements = targetElement.querySelectorAll(selector);
 
       if (targetElement.getAttribute(attr) || targetElement.getAttribute(`data-${data}`)) {
-        initWidgets([targetElement]);
+        init.initWidgets([targetElement]);
       }
 
-      initWidgets(elements);
+      init.initWidgets(elements);
+    } else {
+      init.initWidgets(document.body.querySelectorAll(selector));
     }
 
     return false;
   }
 
-  function teardownWidget(element, widgetName) {
-    const teardown = teardowns.get(widgetName, element);
-    const initiated = initiatedWidgets.get(widgetName, element);
-
-    if (teardown && typeof teardown === 'function') {
-      teardown();
-      teardowns.set(widgetName, element, undefined);
-    }
-
-    if (initiated) {
-      initiatedWidgets.set(widgetName, element, undefined);
-      delete element.dataset[`vvidget_${camelize(widgetName)}`];
-    }
-  }
-
   function handleTeardownEvents(e) {
     const element = e.target;
+    const elements = element.querySelectorAll(selector);
     const widgetName = e.detail && e.detail.widgetName;
 
-    if (widgetName) {
-      teardownWidget(element, widgetName);
-    } else {
-      const names = `${element.dataset[camelize(data)] || ''} ${element.getAttribute(attr) || ''}`;
-
-      names
-        .split(' ')
-        .filter((i) => i)
-        .forEach((name) => teardownWidget(element, name));
+    if (element !== document) {
+      init.teardownWidgets([element], widgetName);
     }
-  }
 
-  document.addEventListener(loadEvents, handleLoadEvents);
-  document.addEventListener(fragmentLoadEvents, handleFragmentLoadEvents);
-  document.addEventListener('vvidget:teardown', handleTeardownEvents);
+    init.teardownWidgets(elements, widgetName);
+  }
 
   register.strategies = strategies;
 
-  register.initAllWidgets = () => initWidgets(document.querySelectorAll(selector));
+  let observer;
+  register.startWatchingDOM = () => {
+    register.shutdown();
+    observer =
+      observer ||
+      mutationObserver(selector, {
+        onAdd: (el) => init.initWidgets([el]),
+        onRemove: (el) => init.teardownWidgets([el])
+      });
+    observer.observe();
+  };
+
+  register.stopWatchingDOM = () => {
+    if (observer) {
+      observer.disconnect();
+    }
+  };
+
+  register.initAllWidgets = () => init.initWidgets(document.querySelectorAll(selector));
   register.teardownAllWidgets = () => {
     const event = new CustomEvent('vvidget:teardown', { bubbles: true });
     document.body.querySelectorAll(selector).forEach((el) => el.dispatchEvent(event));
   };
+
   register.restartAllWidgets = () => {
     register.teardownAllWidgets();
     register.initAllWidgets();
   };
+
+  register.startup = () => {
+    document.addEventListener(loadEvents, handleLoadEvents);
+    document.addEventListener(fragmentLoadEvents, handleFragmentLoadEvents);
+    document.addEventListener('vvidget:teardown', handleTeardownEvents);
+  };
+
   register.shutdown = () => {
-    register.teardownAllWidgets();
     document.removeEventListener(loadEvents, handleLoadEvents);
     document.removeEventListener(fragmentLoadEvents, handleFragmentLoadEvents);
     document.removeEventListener('vvidget:teardown', handleTeardownEvents);
   };
+
+  register.startup();
 
   return register;
 };

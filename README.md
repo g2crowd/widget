@@ -20,7 +20,7 @@ Create an instance of the plugin builder with your preferred configuration:
 ```javascript
 import widgetSetup from 'widget';
 
-const widget = widgetSetup({ attr: 'ue', data: 'ue-widget' }, 'page-refreshed', 'page-refreshed');
+const widget = widgetSetup({ attr: 'ue', data: 'ue-widget' }, 'page-refreshed', 'fragment-refreshed');
 // DOM elements with selector of `ue`, or `data-ue-widget` will activate widgets created with this
 // config
 ```
@@ -37,8 +37,12 @@ This configuration let's us describe widgets and pass options in data attributes
 This will be mapped to the plugin we create with the matching name:
 
 ```javascript
-widget('widget-name', function(opts) {
+widget('widget-name', function(opts, ready) {
   $el = this;
+
+  ready(() => {
+    // teardown
+  });
 }, {
   defaults: {},
   init: 'nextTick'
@@ -62,19 +66,40 @@ This is equivalent to:
 <div ue='widget-1 widget-2'></div>
 ```
 
-### Page refreshes
+### Page refresh events
 
-Widgets will listen for a custom event of your choosing, and initialize themselves once per DOM node. This allows
-you to trigger the event repeatedly without unintended side effects. The event can be triggered on HTML fragments or
-on the entire document.
+There is a legacy event-driven mode, that requires triggering events to initialize widgets.
+This is useful for PJAX and other page-refreshing systems.
 
 ```javascript
-widget('remote-resource', function(opts) {
+widget('remote-resource', function(opts, ready) {
   fetch('/example').then((htmlFragment) => {
     this.append(htmlFragment);
-    this.trigger('page-refreshed');
+    this.trigger('fragment-refreshed');
 
     // any widgets nested within the HTML fragment will be activated
   });
+
+  this.addEventListener('click', fetchData);
+
+  ready(() => {
+    this.removeEventListener('click', fetchData);
+  });
 })
+```
+
+### DOM Mutation Observer
+
+Instead of manually triggering events, you can also choose to opt into using a MutationObserver to detect when
+new elements are added to the DOM.
+
+When you use this mode, fragment and page-load events will be ignored. Setup and teardown should work as expected
+without any manual intervention.
+
+```javascript
+import widgetSetup from 'widget';
+
+const widget = widgetSetup({ attr: 'ue', data: 'ue-widget' }, 'page-refreshed', 'fragment-refreshed');
+
+widget.startWatchingDOM();
 ```
