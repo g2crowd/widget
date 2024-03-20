@@ -58,10 +58,11 @@ class AlreadyRegisteredError extends Error {
   }
 }
 
-const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
+const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents, teardownEvents) {
   const selector = selectorBuilder({ attr, data });
   const registered = {};
   const init = widgetInitiator({ attr, data, registered });
+  teardownEvents = teardownEvents || 'vvidget:teardown';
 
   const register = function (name, plugin, settings = {}) {
     if (registered[name]) {
@@ -108,9 +109,31 @@ const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
 
   register.strategies = strategies;
 
+  register.initAllWidgets = () => init.initWidgets(document.querySelectorAll(selector));
+  register.teardownAllWidgets = () => {
+    const event = new CustomEvent(teardownEvents, { bubbles: true });
+    document.body.querySelectorAll(selector).forEach((el) => el.dispatchEvent(event));
+  };
+
+  register.restartAllWidgets = () => {
+    register.teardownAllWidgets();
+    register.initAllWidgets();
+  };
+
+  register.startWatchingEvents = () => {
+    document.addEventListener(loadEvents, handleLoadEvents);
+    document.addEventListener(fragmentLoadEvents, handleFragmentLoadEvents);
+    document.addEventListener(teardownEvents, handleTeardownEvents);
+  };
+
+  register.stopWatchingEvents = () => {
+    document.removeEventListener(loadEvents, handleLoadEvents);
+    document.removeEventListener(fragmentLoadEvents, handleFragmentLoadEvents);
+    document.removeEventListener(teardownEvents, handleTeardownEvents);
+  };
+
   let observer;
   register.startWatchingDOM = () => {
-    register.shutdown();
     observer =
       observer ||
       mutationObserver(selector, {
@@ -126,30 +149,12 @@ const widget = function ({ attr, data }, loadEvents, fragmentLoadEvents) {
     }
   };
 
-  register.initAllWidgets = () => init.initWidgets(document.querySelectorAll(selector));
-  register.teardownAllWidgets = () => {
-    const event = new CustomEvent('vvidget:teardown', { bubbles: true });
-    document.body.querySelectorAll(selector).forEach((el) => el.dispatchEvent(event));
-  };
-
-  register.restartAllWidgets = () => {
-    register.teardownAllWidgets();
-    register.initAllWidgets();
-  };
-
-  register.startup = () => {
-    document.addEventListener(loadEvents, handleLoadEvents);
-    document.addEventListener(fragmentLoadEvents, handleFragmentLoadEvents);
-    document.addEventListener('vvidget:teardown', handleTeardownEvents);
-  };
-
   register.shutdown = () => {
-    document.removeEventListener(loadEvents, handleLoadEvents);
-    document.removeEventListener(fragmentLoadEvents, handleFragmentLoadEvents);
-    document.removeEventListener('vvidget:teardown', handleTeardownEvents);
+    register.stopWatchingEvents();
+    register.stopWatchingDOM();
   };
 
-  register.startup();
+  register.startWatchingEvents();
 
   return register;
 };
