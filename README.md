@@ -93,13 +93,11 @@ widget('remote-resource', function(opts, ready) {
 Instead of manually triggering events, you can also choose to opt into using a MutationObserver to detect when
 new elements are added to the DOM.
 
-When you use this mode, fragment and page-load events will be ignored. Setup and teardown should work as expected
-without any manual intervention.
-
 ```javascript
 import widgetSetup from 'widget';
 
 const widget = widgetSetup({ attr: 'ue', data: 'ue-widget' }, 'page-refreshed', 'fragment-refreshed');
 
+widget.stopWatchingEvents();
 widget.startWatchingDOM();
 ```
